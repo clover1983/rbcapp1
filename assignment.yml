@@ -1,0 +1,67 @@
+- name: assignment.yml
+  gather_facts: yes
+  become: yes
+  hosts: all
+  serial: "25%"
+  tasks:
+      
+    - name: verify_install - check if httpd service exists
+      command: systemd status httpd
+      check_mode: no
+      register: httpd_service_exists
+      when: action == "verify_install"
+      
+    - name: verify_install - install httpd if httpd service not exists
+      yum:
+        name: httpd
+        state: present
+      when: action == "verify_install" and httpd_service_exists.rc not in [0, 1]
+
+    - name: check-disk
+      shell: df -h | tail -n +2 | sed s/%//g | awk '{ if($5 > 80) print "Alert "$0;}' | mailx -v -s "disk spaces use over 80%" -r "elms@alerts.com" -S smtp=smtp://mail.xxx.com "lili.wang@hotm.com"
+      when: action == "check-disk"
+
+    - name: check-status - httpd
+      uri:
+        url: http://localhost:5000/health_check?service=httpd
+        method: GET
+        header: 
+          Content-Type: application/json
+        body_format: json
+      register: httpd_service_status
+      when: action == "check-status"
+
+    - name: check-status - rabbitmq-server
+      uri:
+        url: http://localhost:5000/health_check?service=rabbitmq-server
+        method: GET
+        header: 
+          Content-Type: application/json
+        body_format: json
+      register: rabbitmq-server_service_status
+      when: action == "check-status"
+
+    - name: check-status - postgresql
+      uri:
+        url: http://localhost:5000/health_check?service=postgresql
+        method: GET
+        header: 
+          Content-Type: application/json
+        body_format: json
+      register: postgresql_service_status
+      when: action == "check-status"
+
+    - name: check-status - if failed
+      debug:
+        msg:
+        - "rbcapp1 is DOWN!"
+        - "http services status is: "  httpd_service_status
+        - "rabbitmq-server services status is: "  rabbitmq-server_service_status
+        - "postgresql services status is: "  postgresql_service_status
+      when: action == "check-status" and (httpd_service_status.rc != "UP" or rabbitmq-server_service_status.rc != "UP" or postgresql_service_status.rc !="UP")
+
+    - name: check-status - if up
+      debug:
+        msg:
+        - "rbcapp1 is UP!"
+      when: action == "check-status" and (httpd_service_status.rc == "UP" or rabbitmq-server_service_status.rc == "UP" or postgresql_service_status.rc =="UP")

@@ -1,0 +1,110 @@
+==================================Assignment ==============================================
+
+ 
+
+Assumption: 
+
+TEST1:  Assume all 3 services are running on the same server as Linux services.
+
+Write a Python script that monitors these services and creates a JSON object with application_name, application_status and host_name.
+Please write this JSON object to a file named {serviceName}-status-{@timestamp}.json
+
+
+See python-monitot-services-to-json.py. Use a for loop - subprocess to check systemctl service request and check return code. If not 0 mark is Down. and write to a json file
+
+
+
+
+
+Write a simple Python REST webservice that: 
+Accepts the above created JSON file and writes it to Elasticsearch 
+Provide a second endpoint where the data can be retrieved, i.e 
+POST /add  à Insert payload into Elasticsearch
+
+GET /health_check à Return the Application status (“UP” or “DOWN”)
+
+Sample calls
+
+https://myservice.rbc.com/add
+
+https://myservice.rbc.com/health_check
+
+
+
+prerequisite - Create a sample ES index and mapping as below
+
+#delete index make sure it's not exists
+curl -X DELETE "http://localhost:9200/rbcapp1"
+
+#create index
+curl -X PUT "http://localhost:9200/rbcapp1"
+
+#add index mapping
+curl -X PUT  -H "Content-Type: application/json" "http://localhost:9200/rbcapp1/serices/_create" -d "@mapping.json"
+
+#here is mapping.json"
+{ 
+  "serices": { 
+    "properties": { 
+      "service_name": { "type": "string" }, 
+      "service_status": { "type": "string" }, 
+      "host_name": { "type": "string" } 
+    } 
+  } 
+  
+#post test
+curl -X POST  -H "Content-Type: application/json" "http://localhost:9200/rbcapp1/serices" -d '@httpd-status-2020-09-04-14-21-04.json'
+
+#search retrieve test
+curl -XGET  -H "Content-Type: application/json"  'http://localhost:9200/rbcapp1/_search?pretty' -d '{"size":1, "query": {"match": {"service_name": "httpd"}}}'
+
+
+Code see python-REST-API-ELeasticsearch.py
+
+How to use:
+1. run ./python-REST-API-ELeasticsearch.py  to listen
+2. Add
+curl -X POST  -H "Content-Type: application/json" "http://localhost:5000/add" -d '@httpd-status-2020-09-04-14-21-04.json'
+3. Retrieve
+curl -X GET  -H "Content-Type: application/json" "http://localhost:5000/health_check?service=httpd"
+
+
+ 
+
+TEST2: Assume the 3 services are running on different servers as RHEL services:  httpd on host1, rabbitMQ on host2, postgreSQL on host3
+
+a.       Create an Ansible inventory file for the above hosts that meets the monitoring needs explained above
+
+
+
+
+See inventory_rbcapp1
+
+rbcapp1 combind 3 subgroup - httpdgroup , rabbitMQgroup, postgreSQLgroup
+
+
+
+
+
+b.       Write an Ansible playbook that will action based on a provided variable named "action":  (clarify the action variable)
+
+"action=verify_install": verifies the services are installed on their allocated hosts and if not, the playbook should install it. (for the install, please pick just one service to illustrate)
+"action=check-disk" : with this action it should check the disk space on all servers and report any disk usage > 80%. Send an alert email to a selected email address (Pick your own).
+"action=check-status": with this action it should return the status of the application “rbcapp1” and a list of services that are down. (you can use the REST endpoint created in TEST1).
+
+
+
+See assignment.yml
+
+command to run the playbook
+Ansible-playbook assignment.yml -I inventory_rbcapp1 -e action=verify_install ---- This is for verify install as an example
+
+verify_install: check systemd services exists (httpd in example). and register  output as vars. If no, step2 use yum to install httpd. "when" condition define  action=verify_install
+
+check-disk: shell command to check all disk over 80 and send email
+
+check-status: use TEST1 REST API to check status and register. If any one DOWN debug msg DOWN and each register status. If all UP msg UP.
+
+
+
+===================================End of Assignement =========================================================

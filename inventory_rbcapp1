@@ -1,0 +1,13 @@
+[rbcapp1]
+httpdgroup
+rabbitMQgroup
+postgreSQLgroup
+
+[httpdgroup]
+host1
+
+[rabbitMQgroup]
+host2
+
+[postgreSQLgroup]
+host3
